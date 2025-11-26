@@ -19,6 +19,7 @@ class PumbSpider(scrapy.Spider):
             meta={
                 "playwright": True,
                 "playwright_page_methods": [
+                    # selector CORRETO
                     PageMethod("wait_for_selector", "div.listagem-item")
                 ],
                 "playwright_include_page": True,
