@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual envs
+venv/
+.venv/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Artefatos de scraping
+*.json
+*.csv
+*.log
+
+# Docker
+*.pid
+data/
+playwright/
+tmp/
+
+# VSCode
+.vscode/
+
+.Trash-0
