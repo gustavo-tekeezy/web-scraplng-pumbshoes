@@ -9,19 +9,31 @@ import os
 
 app = FastAPI()
 
-# Lê variáveis do ambiente (produção usa essas)
+# Carrega variáveis de ambiente
 REDIS_HOST = os.getenv("REDIS_HOST", "redis-cache")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_USER = os.getenv("REDIS_USER", None)
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
 
-r = redis.Redis(
-    host=REDIS_HOST,
-    port=REDIS_PORT,
-    db=0,
-    decode_responses=True
-)
+# Conecta no Redis (com ou sem senha)
+if REDIS_PASSWORD:
+    r = redis.Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        username=REDIS_USER,
+        password=REDIS_PASSWORD,
+        db=0,
+        decode_responses=True
+    )
+else:
+    r = redis.Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        db=0,
+        decode_responses=True
+    )
 
 CACHE_TTL = 1800  # 30 minutos
-
 
 def run_scrapy(query: str):
     temp_file = f"/tmp/{uuid.uuid4()}.json"
