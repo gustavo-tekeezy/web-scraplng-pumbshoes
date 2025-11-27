@@ -6,7 +6,7 @@ import os
 
 app = FastAPI()
 
-# Caminho correto no container (EasyPanel)
+# Caminho do projeto SCRAPY (corrigido para /app)
 SCRAPY_PROJECT_DIR = "/app/shopbot"
 
 def run_scrapy(spider_name: str, args: dict):
@@ -38,13 +38,15 @@ def run_scrapy(spider_name: str, args: dict):
         data = json.load(f)
 
     os.remove(file_path)
+
     return data
 
+
+# Endpoints ===================================================================
 
 @app.get("/pumb")
 def scrape_pumb(q: str):
     return run_scrapy("pumb", {"query": q})
-
 
 @app.get("/product")
 def scrape_product(url: str):
