@@ -1,5 +1,6 @@
 scrapy
 scrapy-playwright
+beautifulsoup4
+parsel
 fastapi
 uvicorn
-playwright
