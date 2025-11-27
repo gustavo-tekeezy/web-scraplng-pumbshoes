@@ -2,25 +2,13 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Dependências do sistema
-RUN apt-get update && apt-get install -y \
-    curl \
-    chromium \
-    chromium-driver \
-    && apt-get clean
+RUN apt-get update && apt-get install -y curl && apt-get clean
 
-# Instala Playwright
-RUN pip install playwright && playwright install chromium
-
-# Copia requisitos
 COPY requirements.txt .
-
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia tudo
-COPY . .
+RUN playwright install --with-deps chromium
 
-# Expõe API
-EXPOSE 8000
+COPY . .
 
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
