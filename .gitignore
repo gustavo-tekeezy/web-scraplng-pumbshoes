@@ -25,3 +25,5 @@ tmp/
 .vscode/
 
 .Trash-0
+
+docker-compose.yml
