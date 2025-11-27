@@ -9,13 +9,15 @@ import os
 
 app = FastAPI()
 
-# Carrega variáveis de ambiente
+# ==========================
+# CONFIG REDIS
+# ==========================
+
 REDIS_HOST = os.getenv("REDIS_HOST", "redis-cache")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 REDIS_USER = os.getenv("REDIS_USER", None)
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
 
-# Conecta no Redis (com ou sem senha)
 if REDIS_PASSWORD:
     r = redis.Redis(
         host=REDIS_HOST,
@@ -33,18 +35,23 @@ else:
         decode_responses=True
     )
 
-CACHE_TTL = 1800  # 30 minutos
+CACHE_TTL = 1800  # 30 min
 
-def run_scrapy(query: str):
+
+# ==========================
+# FUNÇÃO GENÉRICA PARA RODAR SCRAPY
+# ==========================
+
+def run_scrapy(spider: str, **kwargs):
     temp_file = f"/tmp/{uuid.uuid4()}.json"
 
-    cmd = [
-        "scrapy",
-        "crawl",
-        "pumb",
-        "-a", f"query={query}",
-        "-O", temp_file
-    ]
+    cmd = ["scrapy", "crawl", spider]
+
+    # adiciona argumentos -a
+    for key, val in kwargs.items():
+        cmd += ["-a", f"{key}={val}"]
+
+    cmd += ["-O", temp_file]
 
     result = subprocess.run(
         cmd,
@@ -74,6 +81,10 @@ def run_scrapy(query: str):
     return data
 
 
+# ==========================
+# ENDPOINT PUMB (LISTAGEM)
+# ==========================
+
 @app.get("/pumb")
 def pumb_search(q: str):
     cache_key = f"pumb:{hashlib.md5(q.encode()).hexdigest()}"
@@ -82,7 +93,26 @@ def pumb_search(q: str):
     if cached:
         return JSONResponse(content=json.loads(cached))
 
-    data = run_scrapy(q)
+    data = run_scrapy("pumb", query=q)
+
+    r.set(cache_key, json.dumps(data), ex=CACHE_TTL)
+
+    return JSONResponse(content=data)
+
+
+# ==========================
+# ENDPOINT PRODUCT DETAILS
+# ==========================
+
+@app.get("/product-details")
+def product_details(url: str):
+    cache_key = f"details:{hashlib.md5(url.encode()).hexdigest()}"
+
+    cached = r.get(cache_key)
+    if cached:
+        return JSONResponse(content=json.loads(cached))
+
+    data = run_scrapy("product_details", url=url)
 
     r.set(cache_key, json.dumps(data), ex=CACHE_TTL)
 
