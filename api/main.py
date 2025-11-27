@@ -6,17 +6,13 @@ import os
 
 app = FastAPI()
 
-# Caminho do projeto SCRAPY (corrigido para /app)
 SCRAPY_PROJECT_DIR = "/app/shopbot"
 
 def run_scrapy(spider_name: str, args: dict):
     file = f"output_{uuid.uuid4().hex}.json"
     file_path = os.path.join(SCRAPY_PROJECT_DIR, file)
 
-    command = [
-        "scrapy", "crawl", spider_name,
-        "-o", file
-    ]
+    command = ["scrapy", "crawl", spider_name, "-o", file]
 
     for k, v in args.items():
         command += ["-a", f"{k}={v}"]
@@ -29,10 +25,10 @@ def run_scrapy(spider_name: str, args: dict):
     )
 
     if process.returncode != 0:
-        return {"error": "scrapy_failed", "details": process.stderr}
+        return {"error": process.stderr}
 
     if not os.path.exists(file_path):
-        return {"error": "file_not_found", "path": file_path}
+        return {"error": "file_not_found"}
 
     with open(file_path, "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -42,11 +38,10 @@ def run_scrapy(spider_name: str, args: dict):
     return data
 
 
-# Endpoints ===================================================================
-
 @app.get("/pumb")
 def scrape_pumb(q: str):
     return run_scrapy("pumb", {"query": q})
+
 
 @app.get("/product")
 def scrape_product(url: str):
