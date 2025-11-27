@@ -1,48 +1,86 @@
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 import subprocess
 import json
+import redis
+import hashlib
 import uuid
 import os
 
 app = FastAPI()
 
-SCRAPY_PROJECT_DIR = "/app/shopbot"
+# Redis local via docker compose
+r = redis.Redis(
+    host="redis-cache",
+    port=6379,
+    db=0,
+    decode_responses=True
+)
 
-def run_scrapy(spider_name: str, args: dict):
-    file = f"output_{uuid.uuid4().hex}.json"
-    file_path = os.path.join(SCRAPY_PROJECT_DIR, file)
+CACHE_TTL = 1800  # 30 minutos
 
-    command = ["scrapy", "crawl", spider_name, "-o", file]
 
-    for k, v in args.items():
-        command += ["-a", f"{k}={v}"]
+def run_scrapy(query: str):
+    """Executa o Scrapy gerando JSONL e converte para lista."""
+    temp_file = f"/tmp/{uuid.uuid4()}.jsonl"
 
-    process = subprocess.run(
-        command,
-        cwd=SCRAPY_PROJECT_DIR,
+    cmd = [
+        "scrapy",
+        "crawl",
+        "pumb",
+        "-a", f"query={query}",
+        "-o", f"{temp_file}:jsonlines"
+    ]
+
+    result = subprocess.run(
+        cmd,
+        cwd="/app",
         capture_output=True,
         text=True
     )
 
-    if process.returncode != 0:
-        return {"error": process.stderr}
+    print("\n=== SCRAPY STDOUT ===\n", result.stdout)
+    print("\n=== SCRAPY STDERR ===\n", result.stderr)
 
-    if not os.path.exists(file_path):
-        return {"error": "file_not_found"}
+    # Se o arquivo não existir, retorna vazio
+    if not os.path.exists(temp_file):
+        print("Arquivo JSONL não encontrado:", temp_file)
+        return []
 
-    with open(file_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    # Converte JSONL para lista
+    data = []
+    try:
+        with open(temp_file, "r", encoding="utf-8") as f:
+            for line in f:
+                try:
+                    data.append(json.loads(line.strip()))
+                except:
+                    pass
+    except:
+        data = []
 
-    os.remove(file_path)
+    # Remove o arquivo temporário
+    try:
+        os.remove(temp_file)
+    except:
+        pass
 
     return data
 
 
 @app.get("/pumb")
-def scrape_pumb(q: str):
-    return run_scrapy("pumb", {"query": q})
+def pumb_search(q: str):
+    cache_key = f"pumb:{hashlib.md5(q.encode()).hexdigest()}"
 
+    # 1. Cache
+    cached = r.get(cache_key)
+    if cached:
+        return JSONResponse(content=json.loads(cached))
 
-@app.get("/product")
-def scrape_product(url: str):
-    return run_scrapy("product_details", {"url": url})
+    # 2. Scrapy
+    data = run_scrapy(q)
+
+    # 3. Salva no cache
+    r.set(cache_key, json.dumps(data), ex=CACHE_TTL)
+
+    return JSONResponse(content=data)

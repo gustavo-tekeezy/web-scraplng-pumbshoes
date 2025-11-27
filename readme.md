@@ -6,7 +6,7 @@ docker-compose up --build
 
 
 docker ps
-docker exec -it shopbot bash
+docker exec -it webscraping bash
 
 
 
@@ -52,3 +52,5 @@ function Show-Tree {
 }
 
 Show-Tree "."
+
+deactivate
