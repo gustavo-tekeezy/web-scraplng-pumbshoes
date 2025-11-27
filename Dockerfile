@@ -1,17 +1,26 @@
 FROM python:3.10-slim
 
-WORKDIR /workspace
+WORKDIR /app
 
-# Install system deps
-RUN apt-get update && apt-get install -y curl && apt-get clean
+# Dependências do sistema
+RUN apt-get update && apt-get install -y \
+    curl \
+    chromium \
+    chromium-driver \
+    && apt-get clean
 
-# Install Python deps
+# Instala Playwright
+RUN pip install playwright && playwright install chromium
+
+# Copia requisitos
 COPY requirements.txt .
+
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright browsers
-RUN playwright install --with-deps chromium
-
+# Copia tudo
 COPY . .
 
-CMD ["jupyter", "lab", "--ip=0.0.0.0", "--allow-root", "--no-browser"]
+# Expõe API
+EXPOSE 8000
+
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
