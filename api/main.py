@@ -9,10 +9,13 @@ import os
 
 app = FastAPI()
 
-# Redis local via docker compose
+# Lê variáveis do ambiente (produção usa essas)
+REDIS_HOST = os.getenv("REDIS_HOST", "redis-cache")
+REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+
 r = redis.Redis(
-    host="redis-cache",
-    port=6379,
+    host=REDIS_HOST,
+    port=REDIS_PORT,
     db=0,
     decode_responses=True
 )
@@ -21,15 +24,14 @@ CACHE_TTL = 1800  # 30 minutos
 
 
 def run_scrapy(query: str):
-    """Executa o Scrapy gerando JSONL e converte para lista."""
-    temp_file = f"/tmp/{uuid.uuid4()}.jsonl"
+    temp_file = f"/tmp/{uuid.uuid4()}.json"
 
     cmd = [
         "scrapy",
         "crawl",
         "pumb",
         "-a", f"query={query}",
-        "-o", f"{temp_file}:jsonlines"
+        "-O", temp_file
     ]
 
     result = subprocess.run(
@@ -42,24 +44,16 @@ def run_scrapy(query: str):
     print("\n=== SCRAPY STDOUT ===\n", result.stdout)
     print("\n=== SCRAPY STDERR ===\n", result.stderr)
 
-    # Se o arquivo não existir, retorna vazio
     if not os.path.exists(temp_file):
-        print("Arquivo JSONL não encontrado:", temp_file)
+        print("Arquivo não encontrado:", temp_file)
         return []
 
-    # Converte JSONL para lista
-    data = []
     try:
         with open(temp_file, "r", encoding="utf-8") as f:
-            for line in f:
-                try:
-                    data.append(json.loads(line.strip()))
-                except:
-                    pass
+            data = json.load(f)
     except:
         data = []
 
-    # Remove o arquivo temporário
     try:
         os.remove(temp_file)
     except:
@@ -72,15 +66,12 @@ def run_scrapy(query: str):
 def pumb_search(q: str):
     cache_key = f"pumb:{hashlib.md5(q.encode()).hexdigest()}"
 
-    # 1. Cache
     cached = r.get(cache_key)
     if cached:
         return JSONResponse(content=json.loads(cached))
 
-    # 2. Scrapy
     data = run_scrapy(q)
 
-    # 3. Salva no cache
     r.set(cache_key, json.dumps(data), ex=CACHE_TTL)
 
     return JSONResponse(content=data)
